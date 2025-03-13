@@ -3,11 +3,8 @@ import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import debounce from "lodash.debounce";
 
-const fetchProducts = async (query) => {
-  if (!query) return [];
-  const { data } = await axios.get(
-    `http://fakestoreapi.in/api/products?limit=15&search=${query}`
-  );
+const fetchProducts = async () => {
+  const { data } = await axios.get("https://fakestoreapi.com/products");
   return data;
 };
 
@@ -27,28 +24,34 @@ const SearchComponent = () => {
   );
 
   const {
-    data: products = [],
+    data: allProducts = [],
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["products", debouncedSearch],
-    queryFn: () => fetchProducts(debouncedSearch),
-    enabled: !!debouncedSearch,
+    queryKey: ["products"],
+    queryFn: fetchProducts,
   });
 
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearch) return [];
+    return allProducts.filter((product) =>
+      product.title.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [debouncedSearch, allProducts]);
+
   const handleKeyDown = (e) => {
-    if (products.length === 0) return;
+    if (filteredProducts.length === 0) return;
 
     if (e.key === "ArrowDown") {
       setHighlightIndex((prevIndex) =>
-        prevIndex < products.length - 1 ? prevIndex + 1 : prevIndex
+        prevIndex < filteredProducts.length - 1 ? prevIndex + 1 : prevIndex
       );
     } else if (e.key === "ArrowUp") {
       setHighlightIndex((prevIndex) =>
         prevIndex > 0 ? prevIndex - 1 : prevIndex
       );
     } else if (e.key === "Enter" && highlightIndex !== -1) {
-      addProduct(products[highlightIndex]);
+      addProduct(filteredProducts[highlightIndex]);
     } else if (e.key === "Escape") {
       setHighlightIndex(-1);
     }
@@ -88,18 +91,17 @@ const SearchComponent = () => {
       {isLoading && <p className="text-blue-500 mt-2">Loading...</p>}
       {isError && <p className="text-red-500 mt-2">Error fetching data.</p>}
 
-      {products.length > 0 && (
+      {filteredProducts.length > 0 && (
         <ul
           ref={listRef}
           className="mt-2 border border-gray-200 rounded-md max-h-60 overflow-auto shadow-sm"
         >
-          {products.map((product, index) => (
+          {filteredProducts.map((product, index) => (
             <li
               key={product.id}
               onClick={() => addProduct(product)}
-              className={`p-3 cursor-pointer ${
-                highlightIndex === index ? "bg-blue-100" : "hover:bg-blue-50"
-              } transition duration-200`}
+              className={`p-3 cursor-pointer ${highlightIndex === index ? "bg-blue-100" : "hover:bg-blue-50"
+                } transition duration-200`}
             >
               {product.title}
             </li>
@@ -107,7 +109,7 @@ const SearchComponent = () => {
         </ul>
       )}
 
-      {debouncedSearch && products.length === 0 && (
+      {debouncedSearch && filteredProducts.length === 0 && (
         <p className="text-gray-500 mt-2">No results found</p>
       )}
 
